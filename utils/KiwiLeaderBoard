@@ -1,0 +1,86 @@
+#!/bin/bash
+
+if [ -z "$CLIENT_ID" ]; then
+	echo "error: CLIENT_ID undefined"
+	exit 1
+fi
+if [ -z "$CLIENT_SECRET" ]; then
+	echo "error: CLIENT_SECRET undefined"
+	exit 1
+fi
+
+CAMPUS_ID=62
+START_DATE="2024-08-01T00:00:00.000Z"
+END_DATE="2024-09-01T00:00:00.000Z"
+BLACKLIST=("bbutcher" "42lhpirate")
+
+ACCESS_TOKEN=$(curl -s -X POST --data "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET" https://api.intra.42.fr/oauth/token | jq -r '.access_token')
+
+DATA_1=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
+    --data-urlencode "filter[active]=true" \
+    --data-urlencode "page[size]=100" \
+	--data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+    "https://api.intra.42.fr/v2/cursus_users")
+
+DATA_2=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
+    --data-urlencode "filter[active]=true" \
+    --data-urlencode "page[size]=100" \
+	--data-urlencode "page[number]=2" \
+	--data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+    "https://api.intra.42.fr/v2/cursus_users")
+
+DATA=$(echo "$DATA_1 $DATA_2" | jq -s '.[0] + .[1]')
+
+declare -a students_info
+
+logins=$(echo "$DATA" | jq -r '.[] | .user.login')
+correction_points=$(echo "$DATA" | jq -r '.[] | .user.correction_point')
+levels=$(echo "$DATA" | jq -r '.[] | .level')
+
+index=0
+while IFS= read -r login && IFS= read -r correction_point <&3 && IFS= read -r level <&4; do
+
+    if [[ " ${BLACKLIST[@]} " =~ " $login " ]]; then
+        continue
+    fi
+
+    [[ "$level" == "null" || -z "$level" ]] && level=0
+    user_url="https://profile.intra.42.fr/users/$login"
+    students_info+=("$level $login $correction_point $user_url")
+    index=$((index + 1))
+done < <(printf "%s\n" "$logins") 3< <(printf "%s\n" "$correction_points") 4< <(printf "%s\n" "$levels")
+
+sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr)
+
+printf "\033[1m┌──────────────────────────────────┐\033[0m\n"
+printf "\033[1m│       🥝 KIWI LEADERBOARD 🥝     │\033[0m\n"
+printf "\033[1m├───────┬─────────────┬───────┬────┤\033[0m\n"
+printf "\033[1m│ Index │    Login    │ Level │ EP │\033[0m\n"
+printf "\033[1m├───────┼─────────────┼───────┼────┤\033[0m\n"
+
+index=1
+while IFS= read -r line; do
+    level=$(echo "$line" | awk '{print $1}')
+    login=$(echo "$line" | awk '{print $2}')
+    correction_point=$(echo "$line" | awk '{print $3}')
+    user_url=$(echo "$line" | awk '{print $4}')
+    
+    level=$(printf "%.2f" "$level")
+
+    if [ "$index" -eq 1 ]; then
+        icon="👑"
+    elif [ "$index" -eq 2 ]; then
+        icon="🥈"
+    elif [ "$index" -eq 3 ]; then
+        icon="🥉"
+    else
+        icon="  "
+    fi
+
+    printf "│ %-5s │ \033[1m\e]8;;$user_url\a%-8s %-1s\e]8;;\a\033[0m │ %-5s │ %-2s │\n" "$index" "$login" "$icon" "$level" "$correction_point"
+    index=$((index + 1))
+done <<< "$sorted_info"
+
+printf "\033[1m└───────┴─────────────┴───────┴────┘\033[0m\n"
