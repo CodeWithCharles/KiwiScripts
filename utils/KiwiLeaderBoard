@@ -31,7 +31,7 @@ DATA_2=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
     --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
     "https://api.intra.42.fr/v2/cursus_users")
 
-DATA=$(echo "$DATA_1 $DATA_2" | jq -s '.[0] + .[1]')
+DATA=$(echo "$DATA_1 $DATA_2" | jq -s 'add')
 
 declare -a students_info
 
