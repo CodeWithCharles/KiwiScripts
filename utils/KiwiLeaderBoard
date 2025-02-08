@@ -1,19 +1,13 @@
 #!/bin/bash
-
-if [ -z "$CLIENT_ID" ]; then
-    echo "error: CLIENT_ID undefined"
-    exit 1
-fi
-if [ -z "$CLIENT_SECRET" ]; then
-    echo "error: CLIENT_SECRET undefined"
-    exit 1
-fi
-
+CLIENT_SECRET=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
+CLIENT_ID=u-s4t2ud-46c69e8f8b797d676b3360b3bc679d08902874ca1ff9f4253a2a7b926089b416
 CAMPUS_ID=62
-START_DATE="2024-08-01T00:00:00.000Z"
-END_DATE="2024-09-01T00:00:00.000Z"
-BLACKLIST=("bbutcher" "42lhpirate")
+CURSUS_ID=21
+START_DATE="2020-08-01T00:00:00.000Z"
+END_DATE="2025-09-01T00:00:00.000Z"
+BLACKLIST=("bbutcher" "42lhpirate" "bduvieu" "amoraru" "42le-havre_tech" "42le")
 SORT_BY="level"
+
 
 for i in "$@"; do
   case $i in
@@ -21,36 +15,76 @@ for i in "$@"; do
       SORT_BY="${i#*=}"
       shift
       ;;
+    --help*)
+      echo "Usage : --sort=level (Default), --sort=EP (Correction point), or --sort=login ."
+      exit 1
+      ;;
     *)
       ;;
   esac
 done
 
+case $SORT_BY in
+  level)
+    ;;
+  EP)
+    ;;
+  login)
+    ;;
+  *)
+    echo "Invalid sort option. Please use --sort=level, --sort=EP, or --sort=login ."
+    exit 1
+    ;;
+esac
+
+printf "This script can take up to 15s to run. Be patient, it's fetching ~300 users.\n(Default sort is level. See --help.)\n"
+
 ACCESS_TOKEN=$(curl -s -X POST --data "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET" https://api.intra.42.fr/oauth/token | jq -r '.access_token')
 
+# Parallel API calls with background processes and PID tracking
 DATA_1=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
     --data-urlencode "filter[active]=true" \
     --data-urlencode "page[size]=100" \
     --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
     --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
-    "https://api.intra.42.fr/v2/cursus_users")
-
+    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
 DATA_2=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
     --data-urlencode "filter[active]=true" \
     --data-urlencode "page[size]=100" \
     --data-urlencode "page[number]=2" \
     --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
     --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
-    "https://api.intra.42.fr/v2/cursus_users")
+    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
+DATA_3=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
+    --data-urlencode "filter[active]=true" \
+    --data-urlencode "page[size]=100" \
+    --data-urlencode "page[number]=3" \
+    --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
 
-COMBINED_DATA=$(echo "$DATA_1 $DATA_2" | jq -s 'add')
+# Combine all data once the requests are done
+COMBINED_DATA=$(echo "$DATA_1 $DATA_2 $DATA_3 $DATA_4" | jq -s 'add')
+
+# Check if COMBINED_DATA is null or empty
+if [ -z "$COMBINED_DATA" ]; then
+  echo "Combined data is empty. Exiting..."
+  exit 1
+fi
 
 students_info=()
 while IFS=$'\t' read -r login correction_point level; do
-    if [[ " ${BLACKLIST[@]} " =~ " $login " ]]; then
-        continue
-    fi
-    
+	should_skip=false
+	for word in "${BLACKLIST[@]}"; do
+		if [[ "$login" == *"$word"* ]]; then
+			should_skip=true
+			break
+		fi
+	done
+	if [[ "$should_skip" == true ]]; then
+		continue
+	fi
+
     level=$(printf "%.2f" "$level")
     user_url="https://profile.intra.42.fr/users/$login"
     students_info+=("$level $login $correction_point $user_url")
@@ -60,14 +94,14 @@ case $SORT_BY in
   level)
     sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k1)
     ;;
-  correction_points)
+  EP)
     sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k3)
     ;;
   login)
     sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -k2)
     ;;
   *)
-    echo "Invalid sort option. Please use --sort=level, --sort=correction_points, or --sort=login."
+    echo "Invalid sort option. Please use --sort=level, --sort=EP, or --sort=login ."
     exit 1
     ;;
 esac
@@ -84,7 +118,7 @@ while IFS= read -r line; do
     login=$(echo "$line" | awk '{print $2}')
     correction_point=$(echo "$line" | awk '{print $3}')
     user_url=$(echo "$line" | awk '{print $4}')
-    
+
     level=$(printf "%.2f" "$level")
 
     if [ "$index" -eq 1 ]; then
@@ -102,4 +136,3 @@ while IFS= read -r line; do
 done <<< "$sorted_info"
 
 printf "\033[1m└─────┴─────────────┴───────┴────┘\033[0m\n"
-
