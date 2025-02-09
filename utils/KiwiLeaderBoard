@@ -1,10 +1,12 @@
 #!/bin/bash
-CLIENT_SECRET=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
-CLIENT_ID=u-s4t2ud-46c69e8f8b797d676b3360b3bc679d08902874ca1ff9f4253a2a7b926089b416
-CAMPUS_ID=62
-CURSUS_ID=21
-START_DATE="2020-08-01T00:00:00.000Z"
-END_DATE="2025-09-01T00:00:00.000Z"
+
+if [ -f .env]; then
+	source .env
+else
+	echo "Error: .env file not found !"
+	exit 1
+fi
+
 BLACKLIST=("bbutcher" "42lhpirate" "bduvieu" "amoraru" "42le-havre_tech" "42le")
 SORT_BY="level"
 
