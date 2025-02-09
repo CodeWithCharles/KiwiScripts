@@ -2,80 +2,114 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$SCRIPT_DIR/.env" ]; then
-  cp "$SCRIPT_DIR/.env" "/tmp/env_$(whoami)"
-  chmod 600 "/tmp/env_$(whoami)"
-  source "/tmp/env_$(whoami)"
-  rm -f "/tmp/env_$(whoami)"
+	cp "$SCRIPT_DIR/.env" "/tmp/env_$(whoami)"
+	chmod 600 "/tmp/env_$(whoami)"
+	source "/tmp/env_$(whoami)"
+	rm -f "/tmp/env_$(whoami)"
 else
-  echo "Error: .env file not found!"
-  exit 1
+	echo "Error: .env file not found!"
+	exit 1
 fi
 
-BLACKLIST=("bbutcher" "42lhpirate" "bduvieu" "amoraru" "42le-havre_tech" "42le")
-SORT_BY="level"
+if [ $# -eq 0 ]; then
+	HAS_ARGS=0
+else
+	HAS_ARGS=1
+fi
 
+BLACKLIST=("bbutcher" "42lhpirate" "bduvieu" "amoraru" "42le-havre_tech" "42le" "abricout")
+SORT_BY="null"
+sort_flag=false
 
-for i in "$@"; do
-  case $i in
-    --sort=*)
-      SORT_BY="${i#*=}"
-      shift
-      ;;
-    --help*)
-      echo "Usage : --sort=level (Default), --sort=EP (Correction point), or --sort=login ."
-      exit 1
-      ;;
-    *)
-      ;;
-  esac
-done
+if [ $# -ne 0 ]; then
+	sort_flag=true
+	for i in "$@"; do
+		case $i in
+		--sort=* | -s=*)
+			SORT_BY="${i#*=}"
+			shift
+			;;
+		--help* | -h*)
+			echo "Usage : --sort=level / -l (Default), --sort=EP / -EP (Evaluation point), or --sort=login / -lo ."
+			exit 1
+			;;
+		-EP) # Shortcut for --sort=EP
+			SORT_BY="EP"
+			shift
+			;;
+		-l) # Shortcut for --sort=level
+			SORT_BY="level"
+			shift
+			;;
+		-lo) # Shortcut for --sort=login
+			SORT_BY="login"
+			shift
+			;;
+		-*)
+			SORT_BY="invalid"
+			shift
+			;;
+		esac
+	done
+fi
 
 case $SORT_BY in
-  level)
-    ;;
-  EP)
-    ;;
-  login)
-    ;;
-  *)
-    echo "Invalid sort option. Please use --sort=level, --sort=EP, or --sort=login ."
-    exit 1
-    ;;
+level) ;;
+EP) ;;
+login) ;;
+null) ;;
+invalid)
+	echo "Invalid sort option. Please use --sort=level / -l, --sort=EP / -EP, or --sort=login / -lo. See -h (--help)"
+	exit 1
+	;;
+*) ;;
 esac
 
-printf "This script can take up to 15s to run. Be patient, it's fetching ~300 users.\n(Default sort is level. See --help.)\n"
+printf "This script can take up to 15s to run. Be patient, it's fetching ~300 users.\n"
+
+if [ $HAS_ARGS -eq 0 ]; then
+	printf "(Default sort is level. See --help / -h.)\n"
+fi
+
+if $sort_flag; then
+	echo "Sorting by: $SORT_BY"
+fi
+
+if ! $sort_flag; then
+	SORT_BY="level"
+fi
 
 ACCESS_TOKEN=$(curl -s -X POST --data "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET" https://api.intra.42.fr/oauth/token | jq -r '.access_token')
 
 # Parallel API calls with background processes and PID tracking
 DATA_1=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
-    --data-urlencode "filter[active]=true" \
-    --data-urlencode "page[size]=100" \
-    --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
-    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
-    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
+	--data-urlencode "filter[active]=true" \
+	--data-urlencode "page[size]=100" \
+	--data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+	--data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+	"https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
 DATA_2=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
-    --data-urlencode "filter[active]=true" \
-    --data-urlencode "page[size]=100" \
-    --data-urlencode "page[number]=2" \
-    --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
-    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
-    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
+	--data-urlencode "filter[active]=true" \
+	--data-urlencode "page[size]=100" \
+	--data-urlencode "page[number]=2" \
+	--data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+	--data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+	"https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
 DATA_3=$(curl -s -G -H "Authorization: Bearer $ACCESS_TOKEN" \
-    --data-urlencode "filter[active]=true" \
-    --data-urlencode "page[size]=100" \
-    --data-urlencode "page[number]=3" \
-    --data-urlencode "filter[campus_id]=$CAMPUS_ID" \
-    --data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
-    "https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
+	--data-urlencode "filter[active]=true" \
+	--data-urlencode "page[size]=100" \
+	--data-urlencode "page[number]=3" \
+	--data-urlencode "filter[campus_id]=$CAMPUS_ID" \
+	--data-urlencode "range[created_at]=$START_DATE,$END_DATE" \
+	"https://api.intra.42.fr/v2/cursus/$CURSUS_ID/cursus_users")
 
 # Combine all data once the requests are done
 COMBINED_DATA=$(echo "$DATA_1 $DATA_2 $DATA_3 $DATA_4" | jq -s 'add')
 
 # Check if COMBINED_DATA is null or empty
 if [ -z "$COMBINED_DATA" ]; then
-  echo "Combined data is empty. Exiting..."
-  exit 1
+	echo "Combined data is empty. Exiting..."
+	exit 1
 fi
 
 students_info=()
@@ -91,25 +125,25 @@ while IFS=$'\t' read -r login correction_point level; do
 		continue
 	fi
 
-    level=$(printf "%.2f" "$level")
-    user_url="https://profile.intra.42.fr/users/$login"
-    students_info+=("$level $login $correction_point $user_url")
+	level=$(printf "%.2f" "$level")
+	user_url="https://profile.intra.42.fr/users/$login"
+	students_info+=("$level $login $correction_point $user_url")
 done < <(echo "$COMBINED_DATA" | jq -r '.[] | [.user.login, (.user.correction_point // 0), (.level // 0)] | @tsv')
 
 case $SORT_BY in
-  level)
-    sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k1)
-    ;;
-  EP)
-    sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k3)
-    ;;
-  login)
-    sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -k2)
-    ;;
-  *)
-    echo "Invalid sort option. Please use --sort=level, --sort=EP, or --sort=login ."
-    exit 1
-    ;;
+level)
+	sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k1)
+	;;
+EP)
+	sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -nr -k3)
+	;;
+login)
+	sorted_info=$(printf "%s\n" "${students_info[@]}" | sort -k2)
+	;;
+*)
+	echo "Invalid sort option. Please use --sort=level, --sort=EP, or --sort=login ."
+	exit 1
+	;;
 esac
 
 printf "\033[1m┌────────────────────────────────┐\033[0m\n"
@@ -120,25 +154,25 @@ printf "\033[1m├─────┼─────────────┼�
 
 index=1
 while IFS= read -r line; do
-    level=$(echo "$line" | awk '{print $1}')
-    login=$(echo "$line" | awk '{print $2}')
-    correction_point=$(echo "$line" | awk '{print $3}')
-    user_url=$(echo "$line" | awk '{print $4}')
+	level=$(echo "$line" | awk '{print $1}')
+	login=$(echo "$line" | awk '{print $2}')
+	correction_point=$(echo "$line" | awk '{print $3}')
+	user_url=$(echo "$line" | awk '{print $4}')
 
-    level=$(printf "%.2f" "$level")
+	level=$(printf "%.2f" "$level")
 
-    if [ "$index" -eq 1 ]; then
-        icon="👑"
-    elif [ "$index" -eq 2 ]; then
-        icon="🥈"
-    elif [ "$index" -eq 3 ]; then
-        icon="🥉"
-    else
-        icon="  "
-    fi
+	if [ "$index" -eq 1 ]; then
+		icon="👑"
+	elif [ "$index" -eq 2 ]; then
+		icon="🥈"
+	elif [ "$index" -eq 3 ]; then
+		icon="🥉"
+	else
+		icon="  "
+	fi
 
-    printf "│ %-3s │ \033[1m\e]8;;$user_url\a%-8s %-2s\e]8;;\a\033[0m │ %-5s │ %-2s │ \n" "$index" "$login" "$icon" "$level" "$correction_point"
-    index=$((index + 1))
-done <<< "$sorted_info"
+	printf "│ %-3s │ \033[1m\e]8;;$user_url\a%-8s %-2s\e]8;;\a\033[0m │ %-5s │ %-2s │ \n" "$index" "$login" "$icon" "$level" "$correction_point"
+	index=$((index + 1))
+done <<<"$sorted_info"
 
 printf "\033[1m└─────┴─────────────┴───────┴────┘\033[0m\n"
