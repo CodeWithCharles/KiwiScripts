@@ -1,10 +1,14 @@
 #!/bin/bash
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f $SCRIPT_DIR/.env ]; then
-	source $SCRIPT_DIR/.env
+if [ -f "$SCRIPT_DIR/.env" ]; then
+  cp "$SCRIPT_DIR/.env" "/tmp/env_$(whoami)"
+  chmod 600 "/tmp/env_$(whoami)"
+  source "/tmp/env_$(whoami)"
+  rm -f "/tmp/env_$(whoami)"
 else
-	echo "Error: .env file not found !"
-	exit 1
+  echo "Error: .env file not found!"
+  exit 1
 fi
 
 BLACKLIST=("bbutcher" "42lhpirate" "bduvieu" "amoraru" "42le-havre_tech" "42le")
