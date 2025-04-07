@@ -26,7 +26,5 @@ echo "icpp() {
 	fi
 }" >> ~/.zshrc
 
-source ~/.zshrc
-
-echo "Icpp installed !"
+echo "Icpp installed ! Remember to run : source ~/.zshrc"
 printf '\nUsage: \n\tTo init a new cpp exercice : icpp <name_of_dir>\n\tTo update Files.mk do : mff -r=./src -t=cpp\n\tInside of a cpp template, you can also run : make mff\n'
