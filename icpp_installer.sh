@@ -5,7 +5,7 @@ if [ ! -f ~/.zshrc ]; then
 	exit
 fi
 
-echo "Empowered with https://github.com/42-amassias/makefile_file_formatter"
+printf "Empowered by https://github.com/42-amassias/makefile_file_formatter !\n\n"
 echo "Installing makefile_file_formatter"
 sleep 1
 git clone https://github.com/42-amassias/makefile_file_formatter /tmp/makefile_file_formatter &> /dev/null
@@ -26,5 +26,5 @@ echo "icpp() {
 	fi
 }" >> ~/.zshrc
 
-echo "Icpp installed ! Remember to run : source ~/.zshrc"
+printf "\n\t\tIcpp installed ! Remember to run : source ~/.zshrc"
 printf '\nUsage: \n\tTo init a new cpp exercice : icpp <name_of_dir>\n\tTo update Files.mk do : mff -r=./src -t=cpp\n\tInside of a cpp template, you can also run : make mff\n'
