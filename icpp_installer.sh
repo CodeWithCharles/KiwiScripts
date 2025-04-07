@@ -17,7 +17,7 @@ sleep 1
 echo "icpp() {
 	if [ -n \"\$1\" ]
 	then
-		git clone https://github.com/CodeWithCharles/42_cpp_template.git &> /dev/null
+		git clone https://github.com/CodeWithCharles/42_cpp_template.git
 		rm -rf 42_cpp_template/.git
 		mv 42_cpp_template \"\$1\"
 		printf \"Done generating template \$1 !"
