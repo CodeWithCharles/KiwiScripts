@@ -15,11 +15,11 @@ rm -rf /tmp/makefile_file_formatter
 echo "Installing cpp_template"
 sleep 1
 echo "icpp() {
-	if [ -n \"\$\1\" ]
+	if [ -n \"\$1\" ]
 	then
 		git clone https://github.com/CodeWithCharles/42_cpp_template.git
 		rm -rf 42_cpp_template/.git
-		mv 42_cpp_template \"\$\1\"
+		mv 42_cpp_template \"\$1\"
 	else
 		echo \"Usage: icpp <name_of_dir>\"
 	fi
